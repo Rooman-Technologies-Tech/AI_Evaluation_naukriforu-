@@ -1,0 +1,113 @@
+# Django Backend
+recruitment_portal/venv/
+recruitment_portal/.venv/
+recruitment_portal/env/
+recruitment_portal/ENV/
+recruitment_portal/activate_this.py
+match
+.editorconfig
+
+# Python Bytecode and Caches
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+uv.lock
+
+# Django specific
+recruitment_portal/*.sqlite3
+recruitment_portal/*.db
+recruitment_portal/db.sqlite3
+recruitment_portal/media/
+recruitment_portal/static/
+recruitment_portal/staticfiles/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Test artifacts
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local instance or config files
+instance/
+.cursor/
+.cursorrules
+
+# React Frontend
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+
+# Frontend testing
+frontend/coverage/
+
+# Frontend production
+frontend/build/
+frontend/dist/
+
+# Frontend debug logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# Frontend TypeScript
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# AWS and deployment
+.aws/
+*.pem
+*.key
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
