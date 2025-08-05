@@ -156,11 +156,32 @@ AWS_S3_OBJECT_PARAMETERS = {
     'CacheControl': 'max-age=86400',
 }
 
+# AWS Region for all services
+AWS_REGION = config('AWS_REGION', default='us-east-1')
+
+# Environment configuration
+ENVIRONMENT = config('ENVIRONMENT', default='development')
+
+# Database provider configuration
+DB_PROVIDER = config('DB_PROVIDER', default='postgresql')  # postgresql, hybrid
+DYNAMODB_ENABLED = config('DYNAMODB_ENABLED', default=False, cast=bool)
+
+# DynamoDB Settings
+DYNAMODB_TABLES = {
+    'search_indexes': f'{ENVIRONMENT}-search-indexes',
+    'analytics': f'{ENVIRONMENT}-analytics',
+    'cached_results': f'{ENVIRONMENT}-cached-results',
+}
+
 # AI Settings
 OLLAMA_HOST = config('OLLAMA_HOST', default='http://localhost:11434')
 OLLAMA_MODEL = config('OLLAMA_MODEL', default='llama2')
+OLLAMA_PROVIDER = config('OLLAMA_PROVIDER', default='local')  # local, aws
 AWS_BEDROCK_REGION = config('AWS_BEDROCK_REGION', default='us-east-1')
 AWS_BEDROCK_MODEL = config('AWS_BEDROCK_MODEL', default='anthropic.claude-3-sonnet-20240229-v1:0')
+
+# AI Provider configuration
+AI_PROVIDER = config('AI_PROVIDER', default='ollama')  # ollama, bedrock
 
 # Redis settings for Celery
 REDIS_URL = config('REDIS_URL', default='redis://localhost:6379/0')
@@ -178,4 +199,51 @@ MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_UPLOAD_EXTENSIONS = ['.pdf', '.docx', '.doc']
 
 # Auto-merge settings
-AUTO_MERGE_HOURS = config('AUTO_MERGE_HOURS', default=24, cast=int) 
+AUTO_MERGE_HOURS = config('AUTO_MERGE_HOURS', default=24, cast=int)
+
+# Cache settings
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+    }
+}
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'django.log',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'recruitment_portal': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+} 
