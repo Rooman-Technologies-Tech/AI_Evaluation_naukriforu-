@@ -137,13 +137,67 @@ echo -e "${BLUE}📦 Checking and installing dependencies...${NC}"
 # Backend dependencies
 echo -e "${YELLOW}   Checking backend dependencies...${NC}"
 cd recruitment_portal
-if [ ! -d "venv" ]; then
-    echo -e "${YELLOW}   Creating Python virtual environment...${NC}"
-    $PYTHON_CMD -m venv venv
-fi
 
-source venv/bin/activate
-pip install -q -r requirements.txt
+# Check if virtual environment exists
+if [ -d "venv" ]; then
+    echo -e "${GREEN}   ✅ Virtual environment found, activating...${NC}"
+    source venv/bin/activate
+    
+    # Check Python version in the venv
+    VENV_PYTHON_VERSION=$(python --version 2>&1 | grep -o "3\.[0-9][0-9]*")
+    echo -e "${BLUE}   Current Python version in venv: $VENV_PYTHON_VERSION${NC}"
+    
+    if [[ "$VENV_PYTHON_VERSION" == "3.11"* ]]; then
+        echo -e "${GREEN}   ✅ Python 3.11.x detected - perfect for this project!${NC}"
+    elif [[ "$VENV_PYTHON_VERSION" == "3.10"* ]]; then
+        echo -e "${GREEN}   ✅ Python 3.10.x detected - good compatibility!${NC}"
+    elif [[ "$VENV_PYTHON_VERSION" == "3.12"* ]]; then
+        echo -e "${YELLOW}   ⚠️  Python 3.12.x detected - may have compatibility issues${NC}"
+        echo -e "${YELLOW}   Recommended: Use Python 3.11.x for best compatibility${NC}"
+    else
+        echo -e "${RED}   ❌ Unsupported Python version: $VENV_PYTHON_VERSION${NC}"
+        echo -e "${YELLOW}   Please use Python 3.10.x or 3.11.x for best results${NC}"
+        exit 1
+    fi
+    
+    # Check if core packages are installed
+    if ! python -c "import django" &>/dev/null; then
+        echo -e "${YELLOW}   Installing missing dependencies...${NC}"
+        pip install -q -r requirements-fixed.txt 2>/dev/null || pip install -q -r requirements.txt
+    else
+        echo -e "${GREEN}   ✅ Dependencies already installed${NC}"
+    fi
+else
+    echo -e "${YELLOW}   Creating new Python virtual environment...${NC}"
+    
+    # Try to find Python 3.11 first, then 3.10
+    if command -v python3.11 &> /dev/null; then
+        PYTHON_CMD="python3.11"
+        echo -e "${GREEN}   Using Python 3.11 (recommended)${NC}"
+    elif command -v python3.10 &> /dev/null; then
+        PYTHON_CMD="python3.10" 
+        echo -e "${GREEN}   Using Python 3.10 (good compatibility)${NC}"
+    elif command -v python3 &> /dev/null; then
+        PYTHON_VERSION=$(python3 --version 2>&1 | grep -o "3\.[0-9][0-9]*")
+        if [[ "$PYTHON_VERSION" == "3.11"* ]] || [[ "$PYTHON_VERSION" == "3.10"* ]]; then
+            PYTHON_CMD="python3"
+            echo -e "${GREEN}   Using system Python $PYTHON_VERSION${NC}"
+        else
+            echo -e "${YELLOW}   ⚠️  System Python is $PYTHON_VERSION - may have compatibility issues${NC}"
+            PYTHON_CMD="python3"
+        fi
+    else
+        echo -e "${RED}   ❌ No suitable Python version found${NC}"
+        exit 1
+    fi
+    
+    $PYTHON_CMD -m venv venv
+    source venv/bin/activate
+    
+    # Upgrade core tools first for Python 3.12 compatibility
+    pip install -q --upgrade pip setuptools==69.0.0 wheel
+    pip install -q -r requirements-fixed.txt 2>/dev/null || pip install -q -r requirements.txt
+fi
 
 # Run Django migrations
 echo -e "${YELLOW}   Running database migrations...${NC}"
