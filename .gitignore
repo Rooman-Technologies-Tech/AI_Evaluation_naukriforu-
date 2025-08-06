@@ -6,7 +6,7 @@ recruitment_portal/ENV/
 recruitment_portal/activate_this.py
 match
 .editorconfig
-
+aws-outputs.json
 # Python Bytecode and Caches
 __pycache__/
 *.py[cod]

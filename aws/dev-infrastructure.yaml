@@ -1,15 +1,18 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Recruitment Portal Development Infrastructure - RDS + Ollama'
+Description: 'Recruitment Portal Development Infrastructure - RDS + Ollama (AWS Documentation Compliant)'
 
 Parameters:
   Environment:
     Type: String
     Default: development
+    AllowedValues: [development, staging, production]
   
   DatabasePassword:
     Type: String
     NoEcho: true
     Description: Password for RDS database
+    MinLength: 8
+    MaxLength: 128
   
   OllamaModel:
     Type: String
@@ -26,10 +29,10 @@ Resources:
       EnableDnsSupport: true
       Tags:
         - Key: Name
-          Value: !Sub '${Environment}-dev-vpc'
+          Value: !Sub '${Environment}-recruitment-portal-vpc'
 
-  # Public Subnet
-  PublicSubnet:
+  # Public Subnets (2 AZs)
+  PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
@@ -38,18 +41,39 @@ Resources:
       MapPublicIpOnLaunch: true
       Tags:
         - Key: Name
-          Value: !Sub '${Environment}-public-subnet'
+          Value: !Sub '${Environment}-public-subnet-1'
 
-  # Private Subnet
-  PrivateSubnet:
+  PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-public-subnet-2'
+
+  # Private Subnets (2 AZs for RDS)
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
       AvailabilityZone: !Select [0, !GetAZs '']
       Tags:
         - Key: Name
-          Value: !Sub '${Environment}-private-subnet'
+          Value: !Sub '${Environment}-private-subnet-1'
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-private-subnet-2'
 
   # Internet Gateway
   InternetGateway:
@@ -68,6 +92,7 @@ Resources:
   # NAT Gateway
   ElasticIP:
     Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
     Properties:
       Domain: vpc
       Tags:
@@ -76,9 +101,10 @@ Resources:
 
   NATGateway:
     Type: AWS::EC2::NatGateway
+    DependsOn: InternetGatewayAttachment
     Properties:
       AllocationId: !GetAtt ElasticIP.AllocationId
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-nat-gateway'
@@ -94,15 +120,22 @@ Resources:
 
   PublicRoute:
     Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
-  PublicSubnetRouteTableAssociation:
+  PublicSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
       RouteTableId: !Ref PublicRouteTable
 
   PrivateRouteTable:
@@ -115,15 +148,22 @@ Resources:
 
   PrivateRoute:
     Type: AWS::EC2::Route
+    DependsOn: NATGateway
     Properties:
       RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGateway
 
-  PrivateSubnetRouteTableAssociation:
+  PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnet
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
       RouteTableId: !Ref PrivateRouteTable
 
   # Security Groups
@@ -137,6 +177,10 @@ Resources:
           FromPort: 5432
           ToPort: 5432
           CidrIp: 0.0.0.0/0  # Allow from anywhere for development
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref OllamaSecurityGroup  # Also allow from Ollama instance
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-database-sg'
@@ -165,18 +209,20 @@ Resources:
     Properties:
       DBSubnetGroupDescription: Subnet group for RDS PostgreSQL
       SubnetIds:
-        - !Ref PrivateSubnet
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-database-subnet-group'
 
   DatabaseInstance:
     Type: AWS::RDS::DBInstance
+    DependsOn: DatabaseSubnetGroup
     Properties:
       DBInstanceIdentifier: !Sub '${Environment}-recruitment-portal-db'
       DBInstanceClass: db.t3.micro
       Engine: postgres
-      EngineVersion: '15.4'
+      EngineVersion: '17.4'  # More stable version
       AllocatedStorage: 20
       StorageType: gp2
       MasterUsername: postgres
@@ -187,7 +233,8 @@ Resources:
       DBSubnetGroupName: !Ref DatabaseSubnetGroup
       BackupRetentionPeriod: 7
       MultiAZ: false
-      PubliclyAccessible: true  # For development access
+      PubliclyAccessible: true   # Enable for development access
+      DeletionProtection: false
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-recruitment-portal-db'
@@ -253,7 +300,7 @@ Resources:
   ResumeStorageBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${Environment}-recruitment-portal-resumes'
+      BucketName: !Sub '${Environment}-recruitment-portal-resumes-${AWS::AccountId}'
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:
@@ -265,50 +312,11 @@ Resources:
         - Key: Name
           Value: !Sub '${Environment}-resume-storage'
 
-  # EC2 Instance for Ollama
-  OllamaInstance:
-    Type: AWS::EC2::Instance
-    Properties:
-      InstanceType: t3.medium
-      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2023
-      KeyName: !Ref KeyPairName
-      SecurityGroupIds:
-        - !Ref OllamaSecurityGroup
-      SubnetId: !Ref PublicSubnet
-      IamInstanceProfile: !Ref OllamaInstanceProfile
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum update -y
-          yum install -y docker
-          systemctl start docker
-          systemctl enable docker
-          
-          # Install Ollama
-          curl -fsSL https://ollama.ai/install.sh | sh
-          
-          # Pull the specified model
-          ollama pull ${OllamaModel}
-          
-          # Start Ollama service
-          systemctl enable ollama
-          systemctl start ollama
-          
-          # Create Docker container for Ollama
-          docker run -d \
-            --name ollama \
-            -p 11434:11434 \
-            -v ollama:/root/.ollama \
-            ollama/ollama
-      Tags:
-        - Key: Name
-          Value: !Sub '${Environment}-ollama-instance'
-
   # IAM Role for Ollama Instance
   OllamaInstanceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${Environment}-ollama-instance-role'
+      RoleName: !Sub '${Environment}-ollama-instance-role-${AWS::AccountId}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -323,7 +331,7 @@ Resources:
   OllamaInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      InstanceProfileName: !Sub '${Environment}-ollama-instance-profile'
+      InstanceProfileName: !Sub '${Environment}-ollama-instance-profile-${AWS::AccountId}'
       Roles:
         - !Ref OllamaInstanceRole
 
@@ -331,7 +339,49 @@ Resources:
   KeyPairName:
     Type: AWS::EC2::KeyPair
     Properties:
-      KeyName: !Sub '${Environment}-recruitment-portal-key'
+      KeyName: !Sub '${Environment}-recruitment-portal-key-${AWS::AccountId}'
+
+  # EC2 Instance for Ollama
+  OllamaInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: OllamaInstanceProfile
+    Properties:
+      InstanceType: t3.medium
+      ImageId: ami-0c2af51e265bd5e0e  # Updated Amazon Linux 2023 AMI for ap-south-1
+      KeyName: !Ref KeyPairName
+      SecurityGroupIds:
+        - !Ref OllamaSecurityGroup
+      SubnetId: !Ref PublicSubnet1
+      IamInstanceProfile: !Ref OllamaInstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          
+          # Install Docker
+          yum install -y docker
+          systemctl start docker
+          systemctl enable docker
+          usermod -a -G docker ec2-user
+          
+          # Install Ollama
+          curl -fsSL https://ollama.ai/install.sh | sh
+          
+          # Configure Ollama to listen on all interfaces
+          echo 'OLLAMA_HOST=0.0.0.0' >> /etc/environment
+          
+          # Start Ollama service
+          systemctl enable ollama
+          systemctl start ollama
+          
+          # Wait for Ollama to start
+          sleep 10
+          
+          # Pull the specified model
+          su - ec2-user -c "OLLAMA_HOST=127.0.0.1:11434 ollama pull ${OllamaModel}"
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-ollama-instance'
 
 Outputs:
   VpcId:
@@ -354,7 +404,7 @@ Outputs:
 
   DynamoDBTables:
     Description: DynamoDB table names
-    Value: !Sub '${SearchIndexTable.TableName},${AnalyticsTable.TableName}'
+    Value: !Sub '${SearchIndexTable},${AnalyticsTable}'
     Export:
       Name: !Sub '${Environment}-dynamodb-tables'
 
@@ -366,7 +416,7 @@ Outputs:
 
   OllamaEndpoint:
     Description: Ollama EC2 instance endpoint
-    Value: !GetAtt OllamaInstance.PublicDnsName
+    Value: !Sub 'http://${OllamaInstance.PublicDnsName}:11434'
     Export:
       Name: !Sub '${Environment}-ollama-endpoint'
 
@@ -375,3 +425,9 @@ Outputs:
     Value: !GetAtt OllamaInstance.PublicIp
     Export:
       Name: !Sub '${Environment}-ollama-public-ip'
+
+  KeyPairName:
+    Description: EC2 Key Pair name for SSH access
+    Value: !Ref KeyPairName
+    Export:
+      Name: !Sub '${Environment}-key-pair-name'
