@@ -1,23 +1,42 @@
+# Updated requirements.txt with latest secure versions
+# Core Django and REST framework
 Django==5.0.2
-djangorestframework==3.14.0
+djangorestframework==3.15.0
 django-cors-headers==4.3.1
-django-filter==23.5
+django-filter==24.1
+django-extensions==3.2.3
+django-debug-toolbar==4.3.0
+django-storages==1.14.2
+
+# Database
 psycopg2-binary==2.9.9
+
+# Environment and configuration
 python-decouple==3.8
-Pillow==10.2.0
-celery==5.3.4
-redis==5.0.1
-boto3==1.34.34
-botocore==1.34.34
+python-dotenv==1.0.1
+
+# Image processing
+Pillow==10.4.0
+
+# Task queue and caching
+celery==5.3.6
+redis==5.0.2
+
+# AWS services
+boto3==1.34.69
+botocore==1.34.69
+
+# AI and ML
 ollama==0.1.7
-langchain==0.1.0
-langchain-community==0.0.10
-numpy==1.24.3
-pandas==2.0.3
-scikit-learn==1.3.0
-python-dotenv==1.0.0
+langchain==0.2.9
+langchain-community==0.2.9
+numpy==1.26.4
+pandas==2.2.1
+scikit-learn==1.7.1
+
+# Production server
 gunicorn==21.2.0
 whitenoise==6.6.0
-django-storages==1.14.2
-django-extensions==3.2.3
-django-debug-toolbar==4.2.0 
+
+# Development and security
+setuptools>=69.0.0 

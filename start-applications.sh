@@ -163,7 +163,7 @@ if [ -d "venv" ]; then
     # Check if core packages are installed
     if ! python -c "import django" &>/dev/null; then
         echo -e "${YELLOW}   Installing missing dependencies...${NC}"
-        pip install -q -r requirements-fixed.txt 2>/dev/null || pip install -q -r requirements.txt
+        ./venv/bin/pip install -q -r requirements.txt
     else
         echo -e "${GREEN}   ✅ Dependencies already installed${NC}"
     fi
@@ -195,13 +195,13 @@ else
     source venv/bin/activate
     
     # Upgrade core tools first for Python 3.12 compatibility
-    pip install -q --upgrade pip setuptools==69.0.0 wheel
-    pip install -q -r requirements-fixed.txt 2>/dev/null || pip install -q -r requirements.txt
+    ./venv/bin/pip install -q --upgrade pip setuptools wheel
+    ./venv/bin/pip install -q -r requirements.txt
 fi
 
 # Run Django migrations
 echo -e "${YELLOW}   Running database migrations...${NC}"
-$PYTHON_CMD manage.py migrate --noinput
+./venv/bin/python manage.py migrate --noinput
 
 cd ..
 
@@ -222,8 +222,7 @@ echo -e "${BLUE}🎯 Starting applications...${NC}"
 # Start backend
 echo -e "${YELLOW}   Starting Django backend on port $BACKEND_PORT...${NC}"
 cd recruitment_portal
-source venv/bin/activate
-nohup $PYTHON_CMD manage.py runserver 0.0.0.0:$BACKEND_PORT > ../backend.log 2>&1 &
+nohup ./venv/bin/python manage.py runserver 0.0.0.0:$BACKEND_PORT > ../backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
 
